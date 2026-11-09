@@ -1,0 +1,8 @@
+re/mem0.bin
+re/mem.bin
+__pycache__/
+re/state.bin
+re/boot_fb.png
+re/golden*/
+re/dbg*.py
+.claude/

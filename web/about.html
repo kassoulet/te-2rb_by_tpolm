@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TE-2RB - about</title>
+<style>:root{color-scheme:dark}table{border-collapse:collapse;margin:1rem 0}td,th{padding:2px 10px;text-align:left;border-bottom:1px solid #333}body{background:#111;color:#ccc;font:16px/1.5 system-ui;max-width:42rem;margin:auto;padding:1rem 16px}a{color:#8cf}code{color:#ddd}</style>
+<h1>TE-2RB by TPOLM</h1>
+<p>A black-and-white 640x480 demo (The Gathering 1998 party version; the INFOFILE says it "is _supposed_ to be black &amp; white 640x480"). Typographic slides, credits, and small 3D scenes (a TV, a wire lattice, a pulsating sphere, a bomb-like mesh, a wireframe finale) over a tracker module. <a href="index.html">Play it</a>.</p>
+<p><b>Status: complete.</b> All 3005 frames of the picture (scenes 0 to 12, music 0:00 to 5:00) match the original exactly, pixel for pixel (3005/3005). The last 67 frames of music (5:00 to 5:07) have no picture in the original; the player keeps the last, nearly black frame.</p>
+<h2>How the original works</h2>
+<ul>
+<li>One 640x480 <b>byte buffer</b>. Every layer (noise grain, slide, sprite, 3D) is <b>added</b> to it modulo 256; a 256-entry grey palette is written to the VGA DAC every frame, so fades, flashes and pulsing are palette changes.</li>
+<li>The grain comes from two 1.2 MB noise buffers built at start-up from the C <code>rand()</code> LCG; each frame copies a window of one of them at a sine-chosen offset.</li>
+<li>The 3D is a tiny additive renderer: filled triangles are drawn as <b>edge deltas</b> (+I on the left edge, -I on the right) and one prefix-sum pass rebuilds the interiors; no z-buffer, no sorting. Shading is flat and linear in the angle (an <code>acos</code>).</li>
+<li>The cameras are the 3DS keyframer tracks (resampled with a Hermite spline whose TCB values the loader discards); the wire lattice scene uses a second, separate 3D engine with Bezier lines.</li>
+<li>The 3D has two render modes besides the filled one: wire (mode 2) and mode 8, which is the filled mode plus an outline added straight into the screen. The trail scenes (4, 6, 9 to 12) average each frame with the previous one, so a frame depends on its predecessor.</li>
+<li>Scenes wait on the music position (order and row compared as one integer) and read a 70 Hz timer; nothing else drives them.</li>
+</ul>
+<h2>How this port works</h2>
+<p>DEMO.EXE (PMODE/W, Watcom 32-bit) was unpacked by running its own stub under the Unicorn emulator, then run with emulated DOS/DPMI/VESA/VGA and a virtual clock to capture ground-truth frames (640x480 index buffer plus palette). The JavaScript port is then diffed against those frames pixel by pixel. Frames 0 to 3004 have 0 differing pixels.
+Because every frame is a function of the music position, the player can <b>pause and seek</b> anywhere (the trail scenes replay from their start on a seek: about 1 s at worst in node, 1.7 s at the very end, not measured in a browser). The picture is 640x480 shown at 4:3.</p>
+<h2>The ending (scenes 9 to 12)</h2>
+<p>Scenes 9 and 10 are the bomb mesh again, now as a trail over the slides <i>nowhere</i> and <i>nowh2</i>, with the light on the camera eye; scene 10 uses render mode 8 (fill plus outline), the camera slowly pulls away and the palette runs through negative fade values. Scenes 11 and 12 draw the TPOLM1 mesh as wire over the <i>creds</i> and <i>copyrigh</i> slides and fade out to the end.</p>
+<table><tr><th>scene</th><th>frames</th><th>content</th></tr>
+<tr><td>0</td><td>0-119</td><td>grain, slides</td></tr><tr><td>1</td><td>120-422</td><td>TV, random digits</td></tr><tr><td>2</td><td>423-548</td><td>wire lattice</td></tr><tr><td>3</td><td>549-819</td><td>IHAVITU</td></tr><tr><td>4</td><td>820-1079</td><td>LAS, trail</td></tr><tr><td>5</td><td>1080-1363</td><td>TPOLM3</td></tr><tr><td>6</td><td>1364-1668</td><td>PALLO sphere, trail</td></tr><tr><td>7</td><td>1669-2047</td><td>EXE005, credits</td></tr><tr><td>8</td><td>2048-2259</td><td>BOM</td></tr><tr><td>9</td><td>2260-2467</td><td>BOM, trail (nowhere)</td></tr><tr><td>10</td><td>2468-2670</td><td>BOM mode 8, trail (nowh2)</td></tr><tr><td>11</td><td>2671-2771</td><td>TPOLM1 wire, trail (creds)</td></tr><tr><td>12</td><td>2772-3004</td><td>TPOLM1 wire, trail (copyrigh), fade</td></tr></table>
+<p>Honest limits: the picture is drawn on the capture's 10 frames-per-second grid; <code>sin</code>/<code>cos</code> are JS doubles, not the x87, and the 3D code keeps x87 intermediates in doubles (no difference seen on any of the 3005 checked frames); the camera and paths are verified only on the emulator's virtual-clock run; a few start-up values (the random generator state, some clock origins) are measured from the emulator rather than derived; the music is played by libopenmpt and was not compared sample by sample; three unused scene functions and the pre-demo slide are not ported. A WebGL rework is planned for later; this faithful 640x480 port stays the reference.</p>
+<ul>
+<li><code>WRITEUP-effects.md</code> - How each scene works (grain LCG, palette chain, TV scene, lattice, keyframer camera, PALLO, EXE005, BOM, the ending)</li>
+<li><code>WRITEUP-asm.md</code> - The best asm snippets (edge deltas + prefix sum, additive line drawer, outcode clipper, the acos shade, the scene gate; mode 8 outline)</li>
+<li><code>README.md</code> - README (run, tests, what is exact and what is not)</li>
+<li><code>re/NOTES.md</code> - Full reverse-engineering log</li>
+</ul>
