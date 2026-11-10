@@ -11,42 +11,26 @@ const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 // sharp-bilinear upscale: the 640x480 render is first scaled by an integer factor with nearest neighbour, then bilinear-filtered down to the display size
 // (crisp pixels, only the pixel edges are blended; no blur, no uneven pixel widths)
 const cv=$('c'),dv=$('d'),dctx=dv.getContext('2d'),big=document.createElement('canvas'),bctx=big.getContext('2d');
-// optional CRT pass (display only): the grey 640x480 render goes through a WebGL shader (barrel, bloom, scanlines, RGB mask, vignette); falls back to the 2D path without WebGL
-const FS=`precision mediump float;uniform sampler2D u;uniform float k;varying vec2 v;
-vec2 curve(vec2 p){p=p*2.-1.;p*=1.+dot(p.yx,p.yx)*vec2(.03,.04);return p*.5+.5;}
-vec3 s(vec2 p){return texture2D(u,p).rgb;}
-void main(){
-  vec2 p=curve(v);if(p.x<0.||p.x>1.||p.y<0.||p.y>1.){gl_FragColor=vec4(0,0,0,1);return;}
-  vec3 c=s(p);vec2 d=vec2(1./640.,1./480.)*1.5;
-  vec3 b=(s(p+vec2(d.x,0.))+s(p-vec2(d.x,0.))+s(p+vec2(0.,d.y))+s(p-vec2(0.,d.y)))*.25;
-  c=c*.85+b*b*.6;
-  float sc=mix(.8,.6+.4*pow(abs(sin(p.y*480.*3.14159)),.6),k);
-  float m=mod(floor(gl_FragCoord.x),3.);vec3 mask=vec3(.82)+k*vec3(.36)*vec3(m<1.,m>=1.&&m<2.,m>=2.)+(1.-k)*.12;   // k: scanline/mask strength, 0 below 1x source height (they would alias), 1 from 2x
-  vec2 q=p*2.-1.;float vig=1.-.25*dot(q,q);
-  gl_FragColor=vec4(pow(c*sc*mask*vig*1.1,vec3(1.1)),1.);
-}`;
-const cc=$('crt'),cbox=$('crtc');let gl=null,glTried=false,ku=null;
-function crtInit(){
-  glTried=true;gl=cc.getContext('webgl');if(!gl)return;
-  const mk=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
-  const pr=gl.createProgram();gl.attachShader(pr,mk(gl.VERTEX_SHADER,'attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x*.5+.5,.5-a.y*.5);gl_Position=vec4(a,0,1);}'));
-  gl.attachShader(pr,mk(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pr);
-  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){gl=null;return;}
-  gl.useProgram(pr);ku=gl.getUniformLocation(pr,'k');gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
-  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
-  gl.bindTexture(gl.TEXTURE_2D,gl.createTexture());
-  for(const [k,v] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,v);
-}
-function presentCrt(){
-  const dpr=window.devicePixelRatio||1,w=Math.max(1,Math.round(cc.clientWidth*dpr)),h=Math.max(1,Math.round(cc.clientHeight*dpr));
-  if(cc.width!==w||cc.height!==h){cc.width=w;cc.height=h;}
-  gl.viewport(0,0,w,h);gl.uniform1f(ku,Math.max(0,Math.min(1,h/480-1)));gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-}
+// optional CRT (display only): CSS overlay (scanlines + faint vignette) over #d. The band period is an integer k of device px per source row (no moire):
+// with CRT on, #d is sized to k*480 device px high (k=floor(available/480)), 4:3, centred; k<2 -> unavailable (checkbox greyed, normal picture).
+const cbox=$('crtc'),ov=$('ov'),stage=$('stage'),SRC=480;
+// scanline bands as a 1:1 device-pixel image (a CSS tile of k/dpr px is fractional at dpr 1.25 and beats): band i = 40% clear, then a ramp to 33% black
+let bk='';const bands=(k,H)=>{const key=k+'x'+H;if(bk.key===key)return bk.url;const c=document.createElement('canvas');c.width=1;c.height=H;const g=c.getContext('2d'),d=g.createImageData(1,H);
+  for(let r=0;r<H;r++){const v=((r%k)+.5)/k;d.data[4*r+3]=v<.4?0:Math.round(255*.33*(v-.4)/.6);}
+  g.putImageData(d,0,0);bk={key,url:`"${c.toDataURL()}"`};return bk.url;};
 function present(){
-  if(cbox.checked&&!glTried)crtInit();
-  const on=cbox.checked&&!!gl;cc.style.display=on?'block':'none';dv.style.display=on?'none':'block';
-  if(on)return presentCrt();
-  const dpr=window.devicePixelRatio||1,w=Math.max(1,Math.round(dv.clientWidth*dpr)),h=Math.max(1,Math.round(dv.clientHeight*dpr));
+  const dpr=window.devicePixelRatio||1,cw=stage.clientWidth,ch=stage.clientHeight;
+  const kk=Math.floor(Math.min(ch,cw*3/4)*dpr/SRC+1e-6),on=cbox.checked&&kk>=2;
+  cbox.disabled=kk<2;cbox.parentNode.title=kk<2?'CRT needs a window at least 2x the source height (960 device px)':'C';
+  const place=(e,l,t,w,h)=>{e.style.cssText=on?`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px`:'';};
+  let w,h;
+  if(on){
+    const W=kk*640,H=kk*SRC,sr=stage.getBoundingClientRect(),ox=sr.left+stage.clientLeft,oy=sr.top+stage.clientTop;   // snap the picture's origin to a whole device pixel (stage origin may be fractional)
+    const l=Math.round(ox*dpr+(cw*dpr-W)/2)/dpr-ox,t=Math.round(oy*dpr+(ch*dpr-H)/2)/dpr-oy;
+    place(dv,l,t,W/dpr,H/dpr);place(ov,l,t,W/dpr,H/dpr);
+    ov.style.cssText+=`;display:block;pointer-events:none;image-rendering:pixelated;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.15)),url(${bands(kk,H)});background-size:100% 100%;background-repeat:no-repeat`;
+    w=W;h=H;
+  }else{place(dv);ov.style.cssText='display:none';w=Math.max(1,Math.round(dv.clientWidth*dpr));h=Math.max(1,Math.round(dv.clientHeight*dpr));}
   if(dv.width!==w||dv.height!==h){dv.width=w;dv.height=h;}
   const k=Math.max(1,Math.ceil(w/cv.width));
   if(big.width!==cv.width*k){big.width=cv.width*k;big.height=cv.height*k;}
