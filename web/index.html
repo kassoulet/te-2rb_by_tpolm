@@ -15,6 +15,6 @@ button{background:#1d1d28;color:var(--fg);border:1px solid #444;border-radius:4p
 input[type=range]{flex:1;accent-color:var(--ac)}#tm{font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
 </style></head><body>
 <h1>TE-2RB</h1><small>JavaScript port (640x480, 4:3)</small>
-<div id="stage"><canvas id="c" width="640" height="480" style="display:none"></canvas><canvas id="d"></canvas><div id="go">Loading...</div></div>
-<div id="bar"><button id="pp" title="Space">Play</button><button id="b10">-10s</button><input id="seek" type="range" min="0" max="3072" step="1" value="0"><button id="f10">+10s</button><span id="tm">0:00 / 5:07</span><button id="fs">Fullscreen</button></div>
+<div id="stage"><canvas id="c" width="640" height="480" style="display:none"></canvas><canvas id="d"></canvas><canvas id="crt" style="display:none"></canvas><div id="go">Loading...</div></div>
+<div id="bar"><button id="pp" title="Space">Play</button><button id="b10">-10s</button><input id="seek" type="range" min="0" max="3072" step="1" value="0"><button id="f10">+10s</button><span id="tm">0:00 / 5:07</span><label title="C"><input type="checkbox" id="crtc"> CRT</label><button id="fs">Fullscreen</button></div>
 <script type="module" src="js/player.js"></script></body></html>

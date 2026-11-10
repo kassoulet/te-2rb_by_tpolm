@@ -109,7 +109,7 @@ export async function frame(k) {                                // -> Uint8Array
 let q = Promise.resolve(), latest = 0;
 export const scenes = [{name: '2d', start: 0, end: FRAMES / 10, render(ctx, t) {
   const my = ++latest, k = Math.min(FRAMES - 1, Math.round(t * 10));
-  q = q.then(() => my === latest ? frame(k) : null).then((g) => {   // superseded requests are dropped before rendering (else a slow scene backs the queue up forever)
+  return q = q.then(() => my === latest ? frame(k) : null).then((g) => {   // superseded requests are dropped before rendering (else a slow scene backs the queue up forever)
     if (!g || my !== latest) return;
     const im = ctx.createImageData(W, H);
     for (let i = 0; i < WH; i++) { const v = g[i]; im.data[4 * i] = im.data[4 * i + 1] = im.data[4 * i + 2] = v; im.data[4 * i + 3] = 255; }

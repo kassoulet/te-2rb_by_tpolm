@@ -11,7 +11,7 @@ Player: the 640x480 8-bit picture is shown in a **4:3** box (the original mode i
 play/pause, a **seek bar that works anywhere**, -10 s / +10 s, fullscreen. Keys: Space, Left/Right (5 s, Shift 10 s), Home/End, F.
 Seeking works because the picture is a function of the music position (see `WRITEUP-effects.md`, "Why seeking works"). The picture is rendered on the 10 fps grid of the reference capture (frame k = music time k/10 s = demo clock 7k ticks of 70 Hz): `k = round(t*10)`, clamped to frame 3004.
 
-**Display.** The 640x480 render is shown with a sharp-bilinear upscale (`present()` in `web/js/player.js`): integer nearest-neighbour scale first, then bilinear to the window size at device resolution, so pixels stay crisp without uneven widths or blur. The golden comparisons still read the exact 640x480 source canvas.
+**Display.** The 640x480 render is shown with a sharp-bilinear upscale (`present()` in `web/js/player.js`): integer nearest-neighbour scale first, then bilinear to the window size at device resolution, so pixels stay crisp without uneven widths or blur. The golden comparisons still read the exact 640x480 source canvas. An optional **CRT** checkbox (key `C`, remembered) runs that canvas through a WebGL shader (barrel curvature, bloom, scanlines, RGB mask, vignette; scanlines and mask fade out below 2x the source height to avoid moire). Display only, falls back to the 2D path without WebGL.
 
 ## Tests
 ```
