@@ -21,7 +21,7 @@ let bk='';const bands=(k,H)=>{const key=k+'x'+H;if(bk.key===key)return bk.url;co
 function present(){
   const dpr=window.devicePixelRatio||1,cw=stage.clientWidth,ch=stage.clientHeight;
   const kk=Math.floor(Math.min(ch,cw*3/4)*dpr/SRC+1e-6),on=cbox.checked&&kk>=2;
-  cbox.disabled=kk<2;cbox.parentNode.title=kk<2?'CRT needs a window at least 2x the source height (960 device px)':'C';
+  const can=kk>=2||screen.height*dpr>=2*SRC;cbox.disabled=!can;cbox.parentNode.title=!can?'CRT needs a screen at least 2x the source height (960 device px)':kk<2?'CRT: too small windowed, switches to fullscreen':'C';
   const place=(e,l,t,w,h)=>{e.style.cssText=on?`position:absolute;left:${l}px;top:${t}px;width:${w}px;height:${h}px`:'';};
   let w,h;
   if(on){
@@ -38,7 +38,7 @@ function present(){
   dctx.imageSmoothingEnabled=true;dctx.imageSmoothingQuality='high';dctx.drawImage(big,0,0,w,h);
 }
 try{cbox.checked=localStorage.te2rbCrt==='1';}catch(e){}
-cbox.onchange=()=>{try{localStorage.te2rbCrt=cbox.checked?'1':'0';}catch(e){}present();};
+cbox.onchange=()=>{try{localStorage.te2rbCrt=cbox.checked?'1':'0';}catch(e){}present();if(cbox.checked&&!document.fullscreenElement&&Math.floor(Math.min(stage.clientHeight,stage.clientWidth*3/4)*(devicePixelRatio||1)/SRC+1e-6)<2)stage.requestFullscreen?.().catch(()=>{});};
 window.addEventListener('resize',present);
 document.addEventListener('fullscreenchange',()=>setTimeout(present,50));
 function draw(t){const s=sceneAt(t);Promise.resolve(s&&s.render(ctx,t-s.start)).then(present);}   // render may be async: present once the canvas holds the frame (else the display is a frame late, and a paused seek shows the previous picture)
