@@ -8,7 +8,20 @@ window.demoDbg={ac:()=>ac,cp:()=>cp};   // test hook
 const now=()=>performance.now()/1000;
 const cur=()=>playing?Math.min(dur,tBase+(now()-wall0)):tBase;
 const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
-function draw(t){const s=sceneAt(t);if(s)s.render(ctx,t-s.start);}
+// sharp-bilinear upscale: the 640x480 render is first scaled by an integer factor with nearest neighbour, then bilinear-filtered down to the display size
+// (crisp pixels, only the pixel edges are blended; no blur, no uneven pixel widths)
+const cv=$('c'),dv=$('d'),dctx=dv.getContext('2d'),big=document.createElement('canvas'),bctx=big.getContext('2d');
+function present(){
+  const dpr=window.devicePixelRatio||1,w=Math.max(1,Math.round(dv.clientWidth*dpr)),h=Math.max(1,Math.round(dv.clientHeight*dpr));
+  if(dv.width!==w||dv.height!==h){dv.width=w;dv.height=h;}
+  const k=Math.max(1,Math.ceil(w/cv.width));
+  if(big.width!==cv.width*k){big.width=cv.width*k;big.height=cv.height*k;}
+  bctx.imageSmoothingEnabled=false;bctx.drawImage(cv,0,0,big.width,big.height);
+  dctx.imageSmoothingEnabled=true;dctx.imageSmoothingQuality='high';dctx.drawImage(big,0,0,w,h);
+}
+window.addEventListener('resize',present);
+document.addEventListener('fullscreenchange',()=>setTimeout(present,50));
+function draw(t){const s=sceneAt(t);if(s)s.render(ctx,t-s.start);present();}
 async function initAudio(){
   const {ChiptuneJsPlayer}=await import('../vendor/chiptune3.js');
   ac=new AudioContext();cp=new ChiptuneJsPlayer({context:ac,repeatCount:0,interpolationFilter:8});
