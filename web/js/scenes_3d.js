@@ -52,8 +52,12 @@ export const scenes = [{
 // the trail buffer (0x10f104 = (previous + 0x10f144 image) / 2 each frame) and palette/fade are NOT ported.
 export const palloModel = parse3ds(ab(await load('../data/3ds/PALLO.3DS')));
 export const BANK = 0.0017684404124003043;               // 0x422e8 scales cam+0x38 in place on EVERY call (units -> rad): the mode 4 call sees raw*BANK, the mode 2 call right after it raw*BANK*BANK (~0 roll)
-// g = global 0x122644 (vertex pulse phase), += 0.18 per object per render call (2 renders/frame here). Fitted on the 10 fps capture grid: g(1364 @ clk 9548) = 2521.349365 before the mode 4 call.
-export const palloG = (clk) => { let g = 2521.349365234375; for (let i = 0, n = 2 * Math.round((clk - 9548) / 7); i < n; i++) g = F(g + F(0.18)); return g; };   // float32 accumulation, so replayed from the anchor
+// g = global 0x122644 (vertex pulse phase), += 0.18 per object per render call (2 renders per demo frame): it is PER FRAME, not per clock tick, unlike the camera (clk-driven).
+// The original runs a free loop (no vsync/frame cap, 70 Hz MIDAS clock only), so the pulse speed depends on the machine's fps. The capture grid is 10 fps (7 ticks/frame);
+// ORIG_FPS is the ASSUMED real fps (35 = 2 ticks/frame, the harness' original default K=2; real value unknown, machine dependent: raise it for a faster pulse). The phase is
+// made a function of the clock: frames since the anchor = (clk - 9548)/70 s * ORIG_FPS. Anchor g(1364 @ clk 9548) = 2521.349365 before the mode 4 call (fitted on the 10 fps capture).
+export const ORIG_FPS = 35;
+export const palloG = (clk) => F(2521.349365234375 + 2 * 0.18 * ((clk - 9548) / 70) * ORIG_FPS);
 export function palloWire(clk, g = F(palloG(clk) + F(0.18))) {                    // -> Uint8Array(640*480): delta added to the screen buffer by the mode 2 call (rows >= 479 untouched)
   const f = [0.0031, 0.0021, 0.0011].map((c) => F(clk * c));                // 0x1fbe3.. : float32 angles
   const target = [F(Math.sin(f[1]) * 50), F(Math.cos(f[0]) * 50), F(Math.sin(f[2]) * 50)];

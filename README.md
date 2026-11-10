@@ -1,6 +1,6 @@
 # TE-2RB (TPOLM, The Gathering 1998 party version) - JavaScript port + reverse engineering
 
-**STATUS: visual part complete.** All 3005 frames of the picture (frames 0..3004, scenes S0..S12, music 0:00 .. 5:00) are ported and bit-exact against the original run in an emulator (3005/3005, 0 differing pixels).
+**STATUS: visual part complete.** All 3005 frames of the picture (frames 0..3004, scenes S0..S12, music 0:00 .. 5:00) are ported and bit-exact against the original run in an emulator (3005/3005, 0 differing pixels), except S6 PALLO frames 1365..1668 whose vertex-pulse speed is deliberately re-timed to an assumed real-time fps (see "What is not exact").
 Frames 3005..3071 (the music tail up to 307.2 s) have no picture in the original; the player keeps showing the last frame (fade arg 62, near black).
 
 ## Run
@@ -71,6 +71,7 @@ after the last change every range was re-run: 3005/3005 and the headless player 
 * Not ported: three functions that the main call list never reaches (0x20acc LANDCRUI mode 4, 0x20c8c BOM mode 8, 0x20e7c; leftover test scenes, hence LANDCRUI.3DS and TPOLM2.3DS are unused) and the pre-demo slide 0x20de8 (slide [0x10f17c] shown for 0x259 frames before the music starts; no music position, so not in the web timeline).
 * Audio: the music is `TE-2RX.XM` played by libopenmpt, not the original MIDAS mixer. It was only checked as "the original's music-position context runs" (the gate order/row feed), never compared sample by sample.
 * Seek cost: a frame of a trail scene depends on the previous one. A seek replays from the scene start, and the first averaging starts from the previous scene's last buffer (recursively: S10..S12 chain back to S9). In node (this machine, cold, one frame including start-up): about 1.0 s for the end of S6, about 1.7 s for the last frame of S12 (the longest chain, S9..S12, 745 frames). Not measured in a browser.
+* PALLO (S6, frames 1364..1668, e.g. 2:40): the vertex-pulse phase g is PER FRAME (+0.18 per render call, 2 per frame) while the camera is clock-driven. The original has a free loop (no vsync, no frame cap, only the 70 Hz MIDAS clock), so the pulse runs at a machine-dependent speed; the 10 fps golden grid makes it 3.6 g/s, a real run (assumed `ORIG_FPS = 35` in `scenes_3d.js`, unmeasured) about 3.5x faster. The port now computes g from the clock: g = anchor + 0.36 x frames, frames = (clk - 9548)/70 x ORIG_FPS. Frame 1364 still matches the golden; later S6 frames (1365..1668) deliberately do NOT (pulse phase off by up to ~150 rad of sin argument at 1600, so the sphere shape differs; the camera, palette and trail are unchanged). Trail decay (0.5 per frame) is still replayed per 10 fps frame.
 * Pacing: the port draws the 10 fps grid of the capture; the original runs a free loop (the clock is a 70 Hz timer and the picture is a function of it), so it is smoother on a real machine.
 * `web/js/scenes.js` still contains a `teevee` scene (old approximate TV-only version, shadowed by the 2D compositor).
 
@@ -83,7 +84,7 @@ after the last change every range was re-run: 3005/3005 and the headless player 
 * The shade constant at 0x10326d is 0.3183099524062959, not 1/pi (PALLO frame 1625).
 * Mode 8 = mode 4 fill plus the mode-2 outline, the outline being added straight into the 640-pitch screen and not prefix-summed.
 * S10 eye scale starts when `order*64+row > 1604.0f` (order 25 row 5), not at order 25 row 0; a8 = float32((clk - clk_first) * 0.002), the first frame that sees it has a8 = 0.
-* S10 fade arg is negative for most of the scene: `1+(row-0x1c)*0.9846153846153847` gives -22 at order 25 row 4; the DAC keeps 6 bits so the palette is stored `& 63`; row 0x13 gives arg -7 (flash, scale 2) and row 0x14 arg -6 (flicker).
+* S10 fade arg is negative for most of the scene: `1+(row-0x1c)*0.9846153846153847` gives -22 at order 25 row 4; the DAC keeps 6 bits so the palette is stored `& 63` in the emulator golden but the port saturates at 63 (see Palette note below); row 0x13 gives arg -7 (flash, scale 2) and row 0x14 arg -6 (flicker).
 
 ## Regenerating the golden frames (only if you really need to)
 Needs Python + Unicorn + numpy + Pillow; run in `re/`. `python3 golden.py OUTDIR [K=7] [CKPT_SECS=10]` boots the unpacked original, steps the virtual clock by K ticks per present and writes `OUTDIR/fNNNNN.png`, `ticks.json` (order/row per frame; segment-local in the `golden_b..f` runs, use `scenes_2d.pos(k)`) and a checkpoint in `OUTDIR/ckpt/ckpt.bin` every CKPT_SECS of music; running the same command again resumes.
@@ -93,3 +94,7 @@ Caveat: the stall breaker depends on a block counter that checkpoints do not sav
 
 ## Later: WebGL rework
 Idea (not started): the engine is flat-shaded, additive, without textures or z-buffer, so it maps well to a WebGL pass (additive blending, resolution independent). The faithful 640x480 JS port stays as the reference.
+
+## Palette saturation (deliberate deviation from the golden)
+
+DAC saturation (SATURATE_DAC in layers.js, default true): the original byte-stores trunc(base*scale) and OUTs it to 0x3c9 unclamped (0x1eb70: fistp, mov al,[esp+4], out via 0x28706), so values >63 are sent as-is (up to 74 here); a real VGA DAC and DOSBox keep 6 bits (wrap, flashes black) and our golden harness (re/golden.py `_out`, `val&63`) masks too, so the emulator golden has the wrap baked in. User report (4:18) says the original shows white, so the port saturates at 63 instead (set SATURATE_DAC=false for the bit-exact emulator wrap). Affected: only arg<0 frames other than -6/-7 whose pre-mask value exceeds 63, 14 frames: k=2567..2569, 2582..2590 (258.2..259.0 s, args -13..-8, max 69..74), 2670, 2671. Those frames now differ from the emulator golden BY DESIGN (the dark-wrapped grey levels become 63 = white); all other frames, including the -6 flicker (already clamped by 0x1ebec) and the -7 flash (clamped by 0x1ecc8), are unchanged and exact. Which behaviour real hardware had is not settled by the evidence: hardware wraps, the user's memory says white.

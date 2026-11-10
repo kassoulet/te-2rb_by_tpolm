@@ -59,6 +59,10 @@ function pulse(clk) {                               // 0x1eabc
   for (let i = 0; i < 768; i++) w[i] = clamp(F(base[i] * f));
   return w;
 }
+// The original stores trunc(base*scale) as a byte and OUTs it to 0x3c9 with no clamp; a real VGA DAC (and DOSBox) keeps 6 bits (wrap),
+// the golden harness masks &63 too. User report (4:18): the flashes should be white -> saturate at 63 instead. false = bit-exact emulator wrap.
+export const SATURATE_DAC = true;
+const dac6 = (v) => SATURATE_DAC ? Math.min(v, 63) : v & 63;
 export class Palette {                              // holds the flash state of 0x1ecc8 (arg -7)
   constructor() { this.reset(); }
   reset() { this.scale = 1; }
@@ -75,7 +79,7 @@ export class Palette {                              // holds the flash state of 
     if (arg === 0) return pulse(clk);
     if (arg > 64) return base.slice();
     const w = pulse(clk), s = F((65 - arg) * 0.015625);
-    for (let i = 0; i < 768; i++) w[i] = Math.trunc(F(w[i] * s)) & 63;   // arg < 0 (S10) brightens above 63: byte store + 6-bit DAC wrap
+    for (let i = 0; i < 768; i++) w[i] = dac6(Math.trunc(F(w[i] * s)));   // arg < 0 (S10) brightens above 63: original = byte store + 6-bit DAC wrap; see SATURATE_DAC
     return w;
   }
 }
