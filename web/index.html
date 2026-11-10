@@ -9,7 +9,7 @@ h1{font-size:18px;margin:14px 0 2px;letter-spacing:2px}small{opacity:.7}
 #stage:fullscreen{width:100vw;height:100vh;aspect-ratio:auto;border:0;display:flex;align-items:center;justify-content:center}
 canvas{width:100%;height:100%;display:block}
 #stage:fullscreen canvas{width:min(100vw,100vh*4/3);height:min(100vh,100vw*3/4)}
-#go{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000a;color:#fff;font-size:20px;cursor:pointer;text-align:center}
+#go{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5%;background:#000 url(data/tex/attenz.png) center/100% 100% no-repeat;color:#fff;font-size:clamp(14px,2.4vw,22px);cursor:pointer;text-align:center;text-shadow:0 0 6px #000,0 0 2px #000}
 #bar{display:flex;gap:8px;align-items:center;width:min(96vw,900px);margin:10px 0}
 button{background:#1d1d28;color:var(--fg);border:1px solid #444;border-radius:4px;padding:6px 12px;cursor:pointer}button:hover{border-color:var(--ac)}
 input[type=range]{flex:1;accent-color:var(--ac)}#tm{font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
