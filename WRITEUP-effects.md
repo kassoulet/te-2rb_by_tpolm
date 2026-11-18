@@ -115,6 +115,61 @@ All four use the S4/S6 trail rule `buf = (buf + slide >> 2) >> 1` (first iterati
 * **S12** (0x208f4, order 27 row 4 .. gate (29,22)): slide `copyrigh` ([0x10f164]), same TPOLM1 wire layer. Palette: arg 0 until order 29, then `trunc(1 + row x 2.909090909090909)` (0x1016f1); the last frame (3004, row 21) has arg 62, i.e. 3/64 of the white ramp: nearly black, not exactly. The scene ends when gate (29,22) is true (frame 3005); the other test, gate (1,10), only aborts if the music restarted.
 LANDCRUI.3DS and TPOLM2.3DS are loaded by the demo but used by nothing: the functions that would draw them (0x20acc, 0x20c8c, 0x20e7c) are not in the main call list (0x1d265..0x1d2a1).
 
+## 2D/3D art used
+
+The art ships as plain files next to `DEMO.EXE` (80 TGA, 10 3DS). The previews were decoded independently with a Pillow script (`python3 -I`).
+
+### TGA images (`DATA/`, 80 files)
+
+All 80 files are TGA type 11 (RLE greyscale), 8 bpp, no colour map, origin bottom-left (checked on every file; the RLE decode consumes exactly w*h bytes). Packet: `b & 0x80` = repeat next byte `(b & 0x7f) + 1` times, else `b + 1` literal bytes. The demo's decoder is at 0x1e1c0 (header) / 0x1e4fc (RLE); afterwards it flips the rows and does `pixel >>= 2` (`re/NOTES.md`), so a pixel is a 6-bit index into the palette the demo writes at run time (see the palette chain). The previews show the raw 0..255 value as grey. "Values" = distinct pixel values in the file.
+
+| Group | Files | Size | Values |
+|---|---|---|---|
+| Slides, 640x480 | 29 files: 500yr, 5tpolm, alku, apup1..7, attenz, copyrigh, cred1..8, creds, donot, kikka1, love, middle, nowh2, nowhere, odwar, secret | 640x480 | 17 (alku, apup1) to 256 (cred4); 500yr 32, 5tpolm 29, apup2..7 30 or 32, copyrigh 32, donot 26, nowh2/nowhere/odwar/secret 32, kikka1 138, middle 217, love 240, creds 157, attenz 248 |
+| Sprites | 6998, 8996, _6998, _8996 | 171x62 | 18 each (1,517 bytes each) |
+| Glyph cut-outs | `DATA/FONTS/`: 0..9 (about 10..24 x 22..24), A..Z (9..34 x 34), CLOSE, EQUAL, HOMO1, OPEN, PLUS, POINT, QUOTE, SHOUT, SLASH, WHAT (11..25 x 39..40) | one TGA per glyph | 6 to 17 |
+| Full-frame font sheet | `FONTS/FONT.TGA` | 640x480 | 17 |
+
+That is 29 slides + 4 sprites + 46 glyph files + FONT.TGA = 80. File sizes of the slides: 8.7 KB (apup1) to 309 KB (cred3).
+
+Usage stated in the scene notes above: `alku` S1 (under the TV), `500yr` S3 + sprite `8996`, `odwar` S5 + sprite `6998`, `kikka1` S4, `middle` S6, `cred1..cred8` and `love` S7, sprite `6998` S8, glyphs `FONTS/0..9` the five random digits under the TV (S1). The other slides (`5tpolm`, `apup*`, `attenz`, `copyrigh`, `creds`, `donot`, `nowh*`, `secret`) are loaded by the demo (load order in `re/NOTES.md`) but their scenes are not described in this document.
+
+Figures: [slides](figures/art_slides.png), [sprites](figures/art_sprites.png), [glyphs](figures/art_fonts.png).
+
+![slides](figures/art_slides.png)
+![sprites](figures/art_sprites.png)
+![glyphs](figures/art_fonts.png)
+
+### 3DS scenes (10 files, R3/R4)
+
+Counts read from the files (all objects of type mesh; faces = triangles). `uv` = UV-coordinate count.
+
+| File | Bytes | Meshes (vertices / faces) | Total v / f | UV | Cameras / lights | Used by |
+|---|---|---|---|---|---|---|
+| BOM | 29168 | Object02..05 72/144 each, Object06 90/184, Object01 110/220, Object07/08 24/48, filler1/01/02 16/32 | 584 / 1172 | none | 2 / 3 | S8 |
+| EXE005 | 45915 | Sphere 956/1864, Object01..09 3/1 (9 triangles) | 983 / 1873 | 956 | 1 / 0 | S7 |
+| IHAVITU | 22210 | kikko 574/981 | 574 / 981 | none | 1 / 0 | S3 |
+| LANDCRUI | 37456 | kikko 961/1800 | 961 / 1800 | none | 1 / 0 | not described above |
+| LAS | 13922 | Loft01 348/692, Line01 29/0 | 377 / 692 | none | 1 / 0 | S4 |
+| PALLO | 6745 | Sphere01 146/288 | 146 / 288 | 146 | 0 / 0 | S6 |
+| TEEVEE | 20471 | Object 205/386, Object01 46/40, rima 16/32, poyta 8/12, pjalka..pjalka03 8/12 each | 307 / 518 | 261 | 2 / 1 | S1 |
+| TPOLM1 | 10995 | Object 204/404 | 204 / 404 | none | 1 / 2 | not described above |
+| TPOLM2 | 77790 | unreal 1024/2044, unreal01..15 42/80 each | 1654 / 3244 | 1024 | 1 / 1 | not described above |
+| TPOLM3 | 51045 | Object 603/1202, Object01..37 8/12 each | 899 / 1646 | 603 | 1 / 1 | S5 |
+
+Notes. `re/NOTES.md` calls BOM "6 meshes of 72 vertices"; the file holds 4 meshes of 72 vertices plus the others listed (the same counts come from `tools/parse3ds.py`), and the notes' "9 small ones" for TPOLM2 do not match the 15 `unrealNN` meshes in the file. TEEVEE has materials with texture map names `ASHSEN.GIF`, `SIVU5.GIF`, `TEAK.JPG` (other materials have no map); those image files are not shipped, and the port never reads materials. EXE005 has materials `BUMP` and `MOB` without maps.
+
+Wireframe of every mesh object in each file (cameras and lights are not drawn): [figures/art_meshes_wire.png](figures/art_meshes_wire.png)
+
+![meshes](figures/art_meshes_wire.png)
+
+### Generated in code
+
+- Grain: two 4 x 640 x 480 noise buffers from the Watcom `rand()` (see "The grain").
+- S2 "do" lattice: a 4x4x4 object of 36 lines x 4 control points (cubic Bezier lines), and a 32x32 blob texture `(sin(x pi/32) sin(y pi/32))^4 x 32` (see S2).
+- The five digits under the TV come from the glyph TGAs, the number from the clock (see S1).
+- The palette itself is computed at run time (pulse / fade / flash / flicker), not stored in any file.
+
 ## What is exact, what is not
 * Exact: all 3005 frames, 0 differing pixels (`tools/cmp2d.py` against the six golden directories; see `README.md` for the per-scene table).
 * Not exact or not tested: `sin`/`cos`/`sqrt`/`atan` are JS doubles, not the x87 (1-ulp risk is theoretical: none seen on 3005 frames); camera and paths are verified only on the golden run (virtual 7-ticks-per-frame clock); frames 3005..3071 have no picture in the original (the player holds the last, near black frame); dead functions 0x20acc/0x20c8c/0x20e7c and the pre-demo slide 0x20de8 are not ported; the audio is libopenmpt, only checked to the extent that the music-position feed of the golden run works, not sample by sample.
