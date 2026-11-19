@@ -98,3 +98,11 @@ Idea (not started): the engine is flat-shaded, additive, without textures or z-b
 ## Palette saturation (deliberate deviation from the golden)
 
 DAC saturation (SATURATE_DAC in layers.js, default true): the original byte-stores trunc(base*scale) and OUTs it to 0x3c9 unclamped (0x1eb70: fistp, mov al,[esp+4], out via 0x28706), so values >63 are sent as-is (up to 74 here); a real VGA DAC and DOSBox keep 6 bits (wrap, flashes black) and our golden harness (re/golden.py `_out`, `val&63`) masks too, so the emulator golden has the wrap baked in. User report (4:18) says the original shows white, so the port saturates at 63 instead (set SATURATE_DAC=false for the bit-exact emulator wrap). Affected: only arg<0 frames other than -6/-7 whose pre-mask value exceeds 63, 14 frames: k=2567..2569, 2582..2590 (258.2..259.0 s, args -13..-8, max 69..74), 2670, 2671. Those frames now differ from the emulator golden BY DESIGN (the dark-wrapped grey levels become 63 = white); all other frames, including the -6 flicker (already clamped by 0x1ebec) and the -7 flash (clamped by 0x1ecc8), are unchanged and exact. Which behaviour real hardware had is not settled by the evidence: hardware wraps, the user's memory says white.
+
+## Write-ups on the site
+
+The write-ups are published as HTML next to the player (`web/writeups/`, generated from `WRITEUP-*.md` and the referenced `figures/`; needs pandoc). After editing a write-up, regenerate with:
+
+```
+../../tools/mkwriteups.sh . web    # shared script: demoports/tools/mkwriteups.sh REPO_DIR PUBLISH_SUBDIR
+```
