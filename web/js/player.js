@@ -1,5 +1,6 @@
 // player.js - transport: music via libopenmpt (chiptune3); demo state = pure function of music position; pause + seek anywhere.
 import {sceneAt} from './scenes.js';
+import {tex} from './layers.js';
 const $=id=>document.getElementById(id);
 const ctx=$('c').getContext('2d');
 const dur=307.2;
@@ -54,6 +55,7 @@ async function initAudio(){
 }
 function sync(){$('pp').textContent=playing?'Pause':'Play';}
 async function play(){
+  if(!ready)return;
   if(!started){started=true;$('go').remove();await initAudio().catch(e=>console.error(e));tBase=0;}
   else if(cp)cp.unpause();
   if(tBase>=dur-0.05)seek(0);
@@ -70,6 +72,9 @@ addEventListener('keydown',e=>{const k=e.key,big=e.shiftKey?10:5;
   if(k===' '){e.preventDefault();toggle();}else if(k==='ArrowLeft')seek(cur()-big);else if(k==='ArrowRight')seek(cur()+big);
   else if(k==='Home')seek(0);else if(k==='End')seek(dur-1);else if(k==='f'||k==='F')$('fs').click();else if(k==='c'||k==='C'){cbox.checked=!cbox.checked;cbox.onchange();}});
 function loop(){const t=cur();if(!drag)sk.value=Math.round(t*10);$('tm').textContent=fmt(t)+' / '+fmt(dur);if(playing)draw(t);requestAnimationFrame(loop);}
-sk.max=Math.round(dur*10);window.demoReady=true;
-$('go').textContent='Click or press Space to start (sound on)';
+sk.max=Math.round(dur*10);
+// preload every texture (data/tex/*.png, 2.4 MB: fetched + decoded lazily by the scenes otherwise, i.e. mid-playback) before playback can start; the 3D models are loaded by the scene modules' top-level awaits
+let ready=false,nl=0;const TEX=['500yr','5tpolm','_6998','6998','_8996','8996','alku','apup1','apup2','apup3','apup4','apup5','apup6','apup7','attenz','copyrigh','cred1','cred2','cred3','cred4','cred5','cred6','cred7','cred8','creds','donot','fonts/0','fonts/1','fonts/2','fonts/3','fonts/4','fonts/5','fonts/6','fonts/7','fonts/8','fonts/9','fonts/a','fonts/b','fonts/c','fonts/close','fonts/d','fonts/e','fonts/equal','fonts/f','fonts/font','fonts/g','fonts/h','fonts/homo1','fonts/i','fonts/j','fonts/k','fonts/l','fonts/m','fonts/n','fonts/o','fonts/open','fonts/p','fonts/plus','fonts/point','fonts/q','fonts/quote','fonts/r','fonts/s','fonts/shout','fonts/slash','fonts/t','fonts/u','fonts/v','fonts/w','fonts/what','fonts/x','fonts/y','fonts/z','kikka1','love','middle','nowh2','nowhere','odwar','secret'];
+$('go').textContent='Loading 0/'+TEX.length+'...';
+Promise.all(TEX.map(n=>tex(n).catch(e=>console.error('tex '+n,e)).then(()=>{$('go').textContent='Loading '+(++nl)+'/'+TEX.length+'...';}))).then(()=>{ready=true;window.demoReady=true;$('go').textContent='Click or press Space to start (sound on)';});
 draw(0);loop();
